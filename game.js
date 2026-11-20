@@ -73,8 +73,7 @@ function boom(px, py, a, s, r, er, fuse) {
   });
 }
 function blast(q) {
-  ex.push({ x: q.x, y: q.y, t: 0, r: q.er });
-  if (dist(q.x, q.y, p.x + p.w / 2, p.y + p.h / 2) < q.er + 8) hurt();
+  ex.push({ x: q.x, y: q.y, t: 0, r: q.er, dur: 0.16, hit: false });
 }
 function tryJump() {
   if (p.ground) {
@@ -108,7 +107,7 @@ function dmg(d) {
   const h = b.h;
   b.hp -= d;
   b.flash = 0.06;
-  if (b.ph === 2 && b.hp <= 45 && b.hp > 0) {
+  if (b.ph === 2 && b.hp <= 25 && b.hp > 0) {
     b.ph = 3;
     b.sub = "limp";
     b.dc = 0.6;
@@ -218,16 +217,16 @@ function upd(rdt) {
           }[b.sub]);
 
   if (b.ph === 1) {
-    // head hovers and spits a rare, slow, huge explosive orb
+    // head hovers and spits a rare, fast explosive orb
     h.x = W / 2 + Math.sin(b.t * 0.6) * 150;
     h.y = 170 + Math.sin(b.t * 1.3) * 18;
     b.cd -= dt;
     if (b.cd <= 0) {
       const a = Math.atan2(pc.y - h.y, pc.x - h.x);
       if (P2) {
-        boom(h.x, h.y, a - 0.3, 140, 24, 130, 4.5);
-        boom(h.x, h.y, a + 0.3, 140, 24, 130, 4.5);
-      } else boom(h.x, h.y, a, 140, 24, 130, 4.5);
+        boom(h.x, h.y, a - 0.3, 200, 24, 95, 3.2);
+        boom(h.x, h.y, a + 0.3, 200, 24, 95, 3.2);
+      } else boom(h.x, h.y, a, 200, 24, 95, 3.2);
       b.cd = P2 ? 4 : 5;
     }
   } else if (b.ph === 2) {
@@ -254,7 +253,7 @@ function upd(rdt) {
         b.st = 0.85;
       }
     } else if (b.sub === "charge") {
-      const cs = 720 + 380 * rg;
+      const cs = 720 + 304 * rg;
       h.x += Math.cos(b.da) * cs * dt;
       h.y += Math.sin(b.da) * cs * dt;
       if (
@@ -269,7 +268,7 @@ function upd(rdt) {
         spark(h.x, h.y, 12, "#ff9a5c");
         b.shk = 0.25;
         b.sub = "recover";
-        b.st = 0.8 - 0.45 * rg;
+        b.st = Math.max(0.45, 0.8 - 0.35 * rg);
       }
     } else if (b.sub === "rimwind") {
       ease(h, W / 2, PATH, 6, dt);
@@ -278,7 +277,7 @@ function upd(rdt) {
         b.rs = 0;
       }
     } else if (b.sub === "rim") {
-      b.rs += (650 + 850 * rg) * dt;
+      b.rs += (650 + 680 * rg) * dt;
       const q = rimPos((b.rd > 0 ? b.rs : PM - b.rs) + RW / 2);
       h.x = q[0];
       h.y = q[1];
@@ -287,10 +286,10 @@ function upd(rdt) {
         h.x = W / 2;
         h.y = PATH;
         b.sub = "recover";
-        b.st = 0.8 - 0.45 * rg;
+        b.st = Math.max(0.45, 0.8 - 0.35 * rg);
       }
     } else {
-      ease(h, clamp(pc.x, 150, W - 150), 200, 2.2 + 3 * rg, dt);
+      ease(h, clamp(pc.x, 150, W - 150), 200, 2.2 + 2.4 * rg, dt);
       if (b.st <= 0) {
         b.cy++;
         if (b.cy % (rg > 0.5 ? 2 : 3) === 0) {
@@ -299,7 +298,7 @@ function upd(rdt) {
           b.rd = Math.random() < 0.5 ? 1 : -1;
         } else {
           b.sub = "aim";
-          b.st = 0.55 - 0.25 * rg;
+          b.st = Math.max(0.4, 0.55 - 0.15 * rg);
         }
       }
     }
@@ -472,7 +471,7 @@ function upd(rdt) {
           const s = P2 ? 1500 : 1300;
           cl.vx = Math.cos(cl.ang) * s;
           cl.vy = Math.sin(cl.ang) * s;
-          cl.t = 0.3;
+          cl.t = P2 ? 460 / s : 0.35;
         }
       }
     } else if (cl.s === "strike") {
@@ -509,7 +508,7 @@ function upd(rdt) {
     } else {
       g.f -= dt;
       if (g.f <= 0 && g.left > 0) {
-        g.f = 0.6;
+        g.f = P2 ? 0.4 : 0.6;
         g.left--;
         const a = g.ang + (Math.random() - 0.5) * 0.08;
         boom(
@@ -767,8 +766,13 @@ function upd(rdt) {
     }
   }
   for (let i = ex.length - 1; i >= 0; i--) {
-    ex[i].t += dt;
-    if (ex[i].t > 0.35) ex.splice(i, 1);
+    const e = ex[i];
+    e.t += dt;
+    if (e.dur && !e.hit && e.t <= e.dur) {
+      const rr = e.r * (e.t / e.dur);
+      if (dist(e.x, e.y, pc.x, pc.y) < rr + 6 && hurt()) e.hit = true;
+    }
+    if (e.t > (e.dur || 0.1) + 0.25) ex.splice(i, 1);
   }
   for (let i = fx.length - 1; i >= 0; i--) {
     const f = fx[i];
@@ -797,14 +801,14 @@ function upd(rdt) {
   if (
     (!cl.dead &&
       cl.s === "strike" &&
-      dist(cl.x, cl.y, pc.x, pc.y) < cl.r + 16) ||
+      dist(cl.x, cl.y, pc.x, pc.y) < cl.r + 6) ||
     ((b.ph !== 4 || b.sub === "dash") &&
-      dist(h.x, h.y, pc.x, pc.y) < h.r + (b.ph === 4 ? 14 : 28)) ||
+      dist(h.x, h.y, pc.x, pc.y) < h.r + (b.ph === 4 ? 14 : 6)) ||
     (!g.dead && dist(g.x, g.y, pc.x, pc.y) < g.r + 10) ||
     (b.sw &&
       !b.sw.dead &&
       b.sw.s === "lap" &&
-      dist(b.sw.x, b.sw.y, pc.x, pc.y) < b.sw.r + 28)
+      dist(b.sw.x, b.sw.y, pc.x, pc.y) < b.sw.r + 4)
   )
     hurt();
   if (b.hp <= 0 && b.ph < 4) {
@@ -899,11 +903,12 @@ function titleCard() {
   });
   x.restore();
 }
-// bomb splits into three small bullets in random directions (the ring is visual only)
+// bomb splits into three evenly spaced bullets at a randomized rotation
 function split(q) {
   ex.push({ x: q.x, y: q.y, t: 0, r: 34 });
+  const base = Math.random() * 6.283;
   for (let i = 0; i < 3; i++) {
-    const a = Math.random() * 6.283;
+    const a = base + (i * Math.PI * 2) / 3;
     sb.push({
       x: q.x,
       y: q.y,
@@ -1129,14 +1134,15 @@ function draw() {
     x.stroke();
   }
   for (const e of ex) {
-    const rr = e.r * Math.min(1, e.t / 0.1),
-      al = Math.max(0, 1 - e.t / 0.35);
+    const dur = e.dur || 0.1,
+      rr = e.r * Math.min(1, e.t / dur),
+      al = Math.max(0, 1 - Math.max(0, e.t - dur) / 0.25);
     x.fillStyle = "rgba(255,140,50," + al * 0.55 + ")";
     x.beginPath();
     x.arc(e.x, e.y, rr, 0, 7);
     x.fill();
-    x.strokeStyle = "rgba(255,235,180," + al + ")";
-    x.lineWidth = 4;
+    x.strokeStyle = e.t <= dur ? "#fff" : "rgba(255,235,180," + al + ")";
+    x.lineWidth = e.t <= dur ? 5 : 3;
     x.stroke();
   }
   for (const f of fx) {
